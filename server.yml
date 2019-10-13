@@ -35,8 +35,8 @@ Resources:
                     !Sub "${EnvironmentName}-VPCID"
             SecurityGroupIngress: 
                 - IpProtocol: tcp
-                  FromPort: 8080
-                  ToPort: 8080
+                  FromPort: 80
+                  ToPort: 80
                   CidrIp: 0.0.0.0/0
                 - IpProtocol: tcp
                   FromPort: 22
@@ -59,11 +59,10 @@ Resources:
                   apt-get install apache2 -y
                   systemctl start apache2.service
                   cd /var/www/html
-                  aws s3 cp s3://udacity-demo-1/udacity.zip .
+                  aws s3 cp s3://udacity-project-iac/udacity.zip .
                   unzip -o udacity.zip
-            #ImageId: ami-005bdb005fb00e791
-            ImageId: ami-05b4756ea95a5d5a7 # UbuProfileWithRolesForOurAppntu18 
-            #IamInstanceProfile: !Ref ProfileWithRolesForOurApp
+            ImageId: ami-05b4756ea95a5d5a7 # Ubuntu18 
+            IamInstanceProfile: !Ref ProfileWithRolesForOurApp
             SecurityGroups:
                 - Ref: WebServerSecGroup
             InstanceType: t3.medium
@@ -71,6 +70,7 @@ Resources:
                 - DeviceName: "/dev/sdk"
                   Ebs:
                       VolumeSize: '10'
+            KeyName: "keypairForEC2"
 
     WebAppGroup:
         Type: AWS::AutoScaling::AutoScalingGroup
@@ -78,10 +78,11 @@ Resources:
             VPCZoneIdentifier:
                 - Fn::ImportValue:
                     !Sub "${EnvironmentName}-PRIV-NETS"
+#                    !Sub "${EnvironmentName}-PUB-NETS"
             LaunchConfigurationName:
                 Ref: WebAppLaunchConfig
-            MinSize: '1'
-            MaxSize: '5'
+            MinSize: '2'
+            MaxSize: '4'
             TargetGroupARNs:
                 - Ref: WebAppTargetGroup
 
@@ -133,9 +134,15 @@ Resources:
             ListenerArn: !Ref 'Listener'
             Priority: 1
               
-#    ProfileWithRolesForOurApp:
-#        Type: AWS::IAM::InstanceProfile
-#        Properties: 
-#            Roles:
-#              - UdacityS3ReadOnlyEC2
-      
+    ProfileWithRolesForOurApp:
+        Type: AWS::IAM::InstanceProfile
+        Properties: 
+            Roles:
+              - UdacityS3ReadOnlyEC2
+
+Outputs:
+    WebAppLB: 
+        Description: Public URL of the LoadBalancer
+        Value: !Join [ "", [ "http://", !GetAtt WebAppLB.DNSName ]]
+        Export: 
+          Name: !Sub ${EnvironmentName}-LB-URL
